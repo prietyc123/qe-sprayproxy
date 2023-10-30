@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sprayproxy
+  labels:
+    app.kubernetes.io/name: sprayproxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sprayproxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sprayproxy
+    spec:
+      serviceAccountName: sprayproxy
+      volumes:
+        - name: tls
+          secret:
+            secretName: sprayproxy-tls
+            defaultMode: 420
+      containers:
+        - name: sprayproxy
+          image: ko://github.com/redhat-appstudio/sprayproxy
+          args:
+            - server
+          env:
+            - name: SPRAYPROXY_SERVER_BACKEND
+            - name: SPRAYPROXY_SERVER_INSECURE_SKIP_TLS_VERIFY
+              value: "true"
+            - name: SPRAYPROXY_SERVER_ENABLE_DYNAMIC_BACKENDS
+              value: "true"
+          ports:
+            - containerPort: 8080
+              name: server
+          resources:
+            limits:
+              memory: "384Mi"
+              cpu: "500m"
+        - name: kube-rbac-proxy
+          image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.12
+          args:
+            - "--secure-listen-address=0.0.0.0:8443"
+            - "--upstream=http://127.0.0.1:8080/"
+            - "--ignore-paths=/proxy,/healthz"
+            - "--logtostderr=true"
+            - "--v=10"
+            - '--tls-cert-file=/etc/tls/tls.crt'
+            - '--tls-private-key-file=/etc/tls/tls.key'
+          ports:
+            - containerPort: 8443
+              protocol: TCP
+              name: proxy-https
+          volumeMounts:
+            - name: tls
+              readOnly: true
+              mountPath: /etc/tls
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 5m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sprayproxy
+  labels:
+    app.kubernetes.io/name: sprayproxy
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: sprayproxy-tls
+spec:
+  selector:
+    app.kubernetes.io/name: sprayproxy
+  ports:
+    - name: server
+      protocol: TCP
+      port: 8443
+      targetPort: proxy-https
