@@ -82,7 +82,7 @@ update_values_in_vault() {
 
 retrieve_sprayproxy_data() {
     sprayproxy_route=$(kubectl get route sprayproxy-route -n sprayproxy -o jsonpath='{.spec.host}')
-    sprayproxy_token=$(kubectl exec -n sprayproxy "$(kubectl get pods -n sprayproxy -o name)" -c kube-rbac-proxy -i -t -- cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+    sprayproxy_token=$(kubectl -n sprayproxy get secret sprayproxy-secret -o jsonpath='{.data.token}' | base64 -d)
 }
 
 main() {
