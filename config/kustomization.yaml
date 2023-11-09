@@ -6,6 +6,7 @@ resources:
   - sprayproxy.yaml
   - route.yaml # only for openshift deployments
   - sprayproxy-rbac.yaml
+  - sprayproxy-secret.yaml
 
 namespace: sprayproxy
 
